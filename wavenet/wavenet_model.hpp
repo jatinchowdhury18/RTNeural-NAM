@@ -16,13 +16,18 @@ struct Wavenet_Model
     void load_weights (const nlohmann::json& model_config, std::vector<float>& model_weights)
     {
         auto weights_begin = model_weights.begin();
+        auto weights_iterator = model_weights.begin();
+
         RTNeural::modelt_detail::forEachInTuple (
-            [&weights_begin] (auto& layer, size_t)
+            [&weights_iterator] (auto& layer, size_t)
             {
-                layer.load_weights (weights_begin);
+                layer.load_weights (weights_iterator);
             },
             layer_arrays);
-        // std::cout << weights_json << std::endl;
+
+            assert ((weights_iterator - weights_begin) == model_weights.size());    // Make sure we use the all of the weights exactly
+            
+            // std::cout << weights_json << std::endl;
     }
 
     T forward (T input) noexcept
