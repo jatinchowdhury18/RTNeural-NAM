@@ -11,7 +11,7 @@ struct Wavenet_Model
 {
     std::tuple<LayerArrays...> layer_arrays;
     Eigen::Matrix<T, 16, 1> head_io {};
-    const T head_scale = (T) 0.02;
+    T head_scale = (T) 0;
 
     void load_weights (const nlohmann::json& model_config, std::vector<float>& model_weights)
     {
@@ -25,7 +25,9 @@ struct Wavenet_Model
             },
             layer_arrays);
 
-            assert ((weights_iterator - weights_begin) == model_weights.size());    // Make sure we use the all of the weights exactly
+        head_scale = *weights_iterator++;
+
+        assert ((weights_iterator - weights_begin) == model_weights.size());    // Make sure we use the all of the weights exactly
             
             // std::cout << weights_json << std::endl;
     }
