@@ -15,8 +15,8 @@ int main()
 
     wavenet::Wavenet_Model<float,
                            RTNeural::DefaultMathsProvider,
-                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>,
-                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>>
+                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, false, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>,
+                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, true, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>>
         rtneural_wavenet;
     rtneural_wavenet.load_weights (model_data.config, model_data.weights);
 

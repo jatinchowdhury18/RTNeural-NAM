@@ -10,6 +10,7 @@ template <typename T,
           int head_size,
           int channels,
           int kernel_size,
+          bool has_head_bias,
           int... dilations>
 struct Layer_Array
 {
@@ -37,10 +38,13 @@ struct Layer_Array
                 head_rechannel_weights[i][j] = *(weights++);
         head_rechannel.setWeights (head_rechannel_weights);
 
-        std::vector<float> head_rechannel_bias (head_size);
-        for (int i = 0; i < head_size; i++)
-            head_rechannel_bias[i] = *(weights++);
-        head_rechannel.setBias (head_rechannel_bias.data());
+        if (has_head_bias)
+        {
+            std::vector<float> head_rechannel_bias (head_size);
+            for (int i = 0; i < head_size; i++)
+                head_rechannel_bias[i] = *(weights++);
+            head_rechannel.setBias (head_rechannel_bias.data());
+        }
     }
 
     void forward (const Eigen::Matrix<T, in_size, 1>& ins,
