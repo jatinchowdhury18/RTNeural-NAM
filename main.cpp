@@ -10,6 +10,8 @@ int main()
 
     std::cout << "Loading model from path: " << model_path << std::endl;
 
+    nam::activations::Activation::enable_fast_tanh();
+
     nam::dspData model_data;
     auto nam_dsp = nam::get_dsp (model_path, model_data);
 
@@ -25,15 +27,15 @@ int main()
     std::cout << std::endl;
 
     static constexpr size_t N = 2048;
-    std::vector<double> input;
+    std::vector<float> input;
     input.resize (N, 0.0);
-    std::vector<double> output_nam;
+    std::vector<float> output_nam;
     output_nam.resize (N, 0.0);
     std::vector<float> output_rtneural;
     output_rtneural.resize (N, 0.0);
 
     for (size_t n = 0; n < input.size(); ++n)
-        input[n] = std::sin (3.14 * static_cast<double> (n) * 0.01);
+        input[n] = std::sin (3.14 * static_cast<float> (n) * 0.01);
 
     auto start = std::chrono::high_resolution_clock::now();
     nam_dsp->process (input.data(), output_nam.data(), N);
@@ -45,7 +47,7 @@ int main()
     for (size_t n = 0; n < input.size(); ++n)
     {
         // nam_dsp->process (input.data() + n, output_nam.data() + n, 1);
-        output_rtneural[n] = rtneural_wavenet.forward (static_cast<float> (input[n]));
+        output_rtneural[n] = rtneural_wavenet.forward (input[n]);
     }
     end = std::chrono::high_resolution_clock::now();
     const auto duration_rtneural = std::chrono::duration_cast<std::chrono::duration<double>> (end - start).count();
