@@ -23,7 +23,7 @@ target_compile_definitions(RTNeural_NAM
         ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/"
 )
 
-add_definitions(-DNAM_SAMPLE_FLOAT)
+target_compile_definitions(NeuralAmpModelerCore PUBLIC NAM_SAMPLE_FLOAT=1)
 
 target_include_directories(RTNeural_NAM
     PRIVATE
