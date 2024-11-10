@@ -6,11 +6,12 @@ namespace wavenet
 {
 template <typename T,
           int condition_size,
+          int in_channels,
           typename... LayerArrays>
 struct Wavenet_Model
 {
     std::tuple<LayerArrays...> layer_arrays;
-    Eigen::Matrix<T, 16, 1> head_input {};
+    Eigen::Matrix<T, in_channels, 1> head_input {};
     T head_scale = (T) 0;
 
     Wavenet_Model()
@@ -54,7 +55,7 @@ struct Wavenet_Model
                     if constexpr (index == 0)
                     {
                         head_input.setZero();
-                        Eigen::Map<Eigen::Matrix<T, 16, 1>, RTNeural::RTNeuralEigenAlignment> head_input_map { head_input.data() };
+                        Eigen::Map<Eigen::Matrix<T, in_channels, 1>, RTNeural::RTNeuralEigenAlignment> head_input_map { head_input.data() };
                         std::get<0> (layer_arrays).forward (v_ins, v_ins, head_input_map);
                     }
                     else
