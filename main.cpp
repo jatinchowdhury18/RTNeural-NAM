@@ -23,7 +23,7 @@ int main()
     auto nam_dsp = nam::get_dsp (model_path, model_data);
 
     wavenet::Wavenet_Model<float,
-                           1,
+                           1, 16,
                            wavenet::Layer_Array<float, 1, 1, 8, 16, 3, false, NAMMathsProvider, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>,
                            wavenet::Layer_Array<float, 16, 1, 1, 8, 3, true, NAMMathsProvider, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>>
         rtneural_wavenet;
