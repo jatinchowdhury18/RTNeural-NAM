@@ -11,17 +11,25 @@ template <typename T,
           int channels,
           int kernel_size,
           bool has_head_bias,
+          typename MathsProvider,
           int... dilations>
 struct Layer_Array
 {
     RTNeural::DenseT<T, in_size, channels> rechannel; // no bias!
-    std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilations>...> layers;
+    std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilations, MathsProvider>...> layers;
     static constexpr auto num_layers = std::tuple_size_v<decltype(layers)>;
     RTNeural::DenseT<T, channels, head_size> head_rechannel; // head_bias = true
 
     using Last_Layer_Type = std::remove_reference_t<decltype(std::get<std::tuple_size_v<decltype (layers)> - 1>(layers))>;
     decltype (Last_Layer_Type::outs)& layer_outputs { std::get<std::tuple_size_v<decltype (layers)> - 1>(layers).outs };
     decltype (RTNeural::DenseT<T, channels, head_size>::outs)& head_outputs { head_rechannel.outs };
+
+    void reset()
+    {
+        RTNeural::modelt_detail::forEachInTuple ([] (auto& layer, size_t)
+                                                 { layer.reset(); },
+                                                 layers);
+    }
 
     void load_weights (std::vector<float>::iterator& weights)
     {
@@ -67,7 +75,7 @@ struct Layer_Array
             },
             layers);
 
-        head_rechannel.forward (std::get<num_layers - 1> (layers).outs);
+        head_rechannel.forward (head_io);
     }
 };
 } // namespace wavenet

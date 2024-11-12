@@ -9,7 +9,8 @@ template <typename T,
           int channels,
           int kernel_size,
           int dilation,
-          typename Activation = RTNeural::TanhActivationT<T, channels>>
+          typename MathsProvider,
+          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>>
 // TODO: gated?
 struct Wavenet_Layer
 {
@@ -19,6 +20,11 @@ struct Wavenet_Layer
     Activation activation;
 
     Eigen::Matrix<T, channels, 1> outs;
+
+    void reset()
+    {
+        conv.reset();
+    }
 
     void load_weights (std::vector<float>::iterator& weights)
     {
@@ -66,9 +72,9 @@ struct Wavenet_Layer
 
         activation.forward (outs);
 
-        head_io.noalias() += outs;
+        head_io.noalias() += activation.outs;
 
-        _1x1.forward (outs);
+        _1x1.forward (activation.outs);
         outs = ins + _1x1.outs;
     }
 };

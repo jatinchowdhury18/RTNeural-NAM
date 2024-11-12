@@ -4,6 +4,15 @@
 
 #include "wavenet/wavenet_model.hpp"
 
+struct NAMMathsProvider
+{
+    template <typename Matrix>
+    static auto tanh(const Matrix& x)
+    {
+        return x.unaryExpr([] (auto x) { return std::tanh (x); });
+    }
+};
+
 int main()
 {
     const auto model_path { std::string { ROOT_DIR } + "OB1 Mesa DC-5 PM.nam" };
@@ -17,13 +26,13 @@ int main()
 
     wavenet::Wavenet_Model<float,
                            1,
-                           RTNeural::DefaultMathsProvider,
-                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, false, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>,
-                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, true, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>>
+                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, false, NAMMathsProvider, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>,
+                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, true, NAMMathsProvider, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512>>
         rtneural_wavenet;
     rtneural_wavenet.load_weights (model_data.config, model_data.weights);
 
     nam_dsp->prewarm();
+    rtneural_wavenet.prewarm();
     std::cout << std::endl;
 
     static constexpr size_t N = 2048;
@@ -48,6 +57,7 @@ int main()
     {
         // nam_dsp->process (input.data() + n, output_nam.data() + n, 1);
         output_rtneural[n] = rtneural_wavenet.forward (input[n]);
+        // rtneural_wavenet.reset();
     }
     end = std::chrono::high_resolution_clock::now();
     const auto duration_rtneural = std::chrono::duration_cast<std::chrono::duration<double>> (end - start).count();
