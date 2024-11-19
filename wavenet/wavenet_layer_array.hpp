@@ -15,7 +15,8 @@ template <typename T,
           int kernel_size,
           typename DilationsSequence,
           bool has_head_bias,
-          typename MathsProvider>
+          typename MathsProvider,
+          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>>
 struct Layer_Array
 {
     template <typename>
@@ -26,7 +27,7 @@ struct Layer_Array
     template <int... dilation_vals>
     struct Layers_Helper<Dilations<dilation_vals...>>
     {
-        using type = std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilation_vals, MathsProvider>...>;
+        using type = std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilation_vals, MathsProvider, Activation>...>;
     };
 
     using Layers = typename Layers_Helper<DilationsSequence>::type;
