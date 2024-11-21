@@ -104,7 +104,7 @@ auto time_it (F1&& f1, F2&& f2)
     return std::make_pair (dur1, dur2);
 }
 
-void bench_ob1_model (size_t N)
+void bench_ob1_model (size_t N, size_t block_size)
 {
     const auto model_path { std::string { ROOT_DIR } + "OB1 Mesa DC-5 PM.nam" };
     std::cout << "Benchmarking model: " << model_path << std::endl;
@@ -125,15 +125,29 @@ void bench_ob1_model (size_t N)
 
     auto input = generate_test_signal (N);
     std::vector<float> output;
-    output.resize (N, 0.0f);
+    output.resize (block_size, 0.0f);
+
+    size_t n_blocks = N / block_size;
+
+    size_t offset = 0;
 
     const auto [duration_nam, duration_rtneural] = time_it (
         [&]
-        { nam_dsp->process (input.data(), output.data(), (int) N); },
+        {
+            for (int buf = 0; buf < n_blocks; buf++)
+            {
+                nam_dsp->process (input.data() + offset, output.data(), (int) block_size);
+            }
+        },
         [&]
         {
-            for (size_t n = 0; n < N; ++n)
-                output[n] = rtneural_wavenet.forward (input[n]);
+            for (int block = 0; block < n_blocks; block++)
+            {
+                for (size_t n = 0; n < block_size; ++n)
+                    output[n] = rtneural_wavenet.forward (input[offset + n]);
+
+                offset += block_size;
+            }
         });
 
     std::cout << "NAM: " << duration_nam << std::endl;
@@ -146,7 +160,7 @@ int main()
     nam::activations::Activation::enable_fast_tanh();
 
     test_ob1_model();
-    bench_ob1_model (1 << 15);
+    bench_ob1_model (1 << 15, 128);
 
     return 0;
 }
