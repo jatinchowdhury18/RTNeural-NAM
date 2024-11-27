@@ -85,6 +85,7 @@ void test_ob1_model()
 
     nam_dsp->process (input.data(), output_nam.data(), N);
     rtneural_wavenet.forward (input.data(), output_rtneural.data(), N);
+    // Un-comment this to test per-sample processing
     // for (size_t n = 0; n < N; ++n)
     //     output_rtneural[n] = rtneural_wavenet.forward (input[n]);
 
@@ -122,10 +123,10 @@ void bench_ob1_model (size_t N, size_t block_size)
                            wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider>>
         rtneural_wavenet;
     load_model (rtneural_wavenet, model_path);
-    rtneural_wavenet.prepare (block_size);
+    rtneural_wavenet.prepare ((int) block_size);
 
-    // nam_dsp->prewarm();
-    // rtneural_wavenet.prewarm();
+    nam_dsp->prewarm();
+    rtneural_wavenet.prewarm();
 
     auto input = generate_test_signal (N);
     std::vector<float> output;
@@ -149,12 +150,13 @@ void bench_ob1_model (size_t N, size_t block_size)
             {
                 const auto* in_data = input.data() + offset;
                 auto* out_data = output.data() + offset;
-#if 1
+
                 rtneural_wavenet.forward (in_data, out_data, (int) block_size);
-#else
-                for (int n = 0; n < block_size; ++n)
-                    out_data[n] = rtneural_wavenet.forward (in_data[n]);
-#endif
+
+                // un-comment this to test per-sample processing
+                // for (int n = 0; n < block_size; ++n)
+                //     out_data[n] = rtneural_wavenet.forward (in_data[n]);
+
                 offset += block_size;
             }
         });
