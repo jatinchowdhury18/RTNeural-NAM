@@ -11,6 +11,7 @@ void Plugin::prepareToPlay (double sample_rate, int samples_per_block)
     rtneural_wavenet.load_weights (model_json);
 
     nam_dsp->prewarm();
+    rtneural_wavenet.prepare (samples_per_block);
     rtneural_wavenet.prewarm();
 }
 
@@ -20,14 +21,19 @@ void Plugin::processAudioBlock (juce::AudioBuffer<float>& buffer)
     const auto num_samples = buffer.getNumSamples();
 
     auto* data = buffer.getWritePointer (0);
-    if (state.params.mode->getIndex() == 0)
+    const auto mode = state.params.mode->getIndex();
+    if (mode == 0)
     {
         nam_dsp->process (data, data, num_samples);
     }
-    else
+    else if (mode == 1)
     {
         for (int n = 0; n < num_samples; ++n)
             data[n] = rtneural_wavenet.forward (data[n]);
+    }
+    else
+    {
+        rtneural_wavenet.forward (data, data, num_samples);
     }
 
     for (int ch = 1; ch < num_channels; ++ch)

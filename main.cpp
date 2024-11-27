@@ -81,9 +81,12 @@ void test_ob1_model()
     std::vector<float> output_rtneural;
     output_rtneural.resize (N, 0.0f);
 
+    rtneural_wavenet.prepare (N);
+
     nam_dsp->process (input.data(), output_nam.data(), N);
-    for (size_t n = 0; n < N; ++n)
-        output_rtneural[n] = rtneural_wavenet.forward (input[n]);
+    rtneural_wavenet.forward (input.data(), output_rtneural.data(), N);
+    // for (size_t n = 0; n < N; ++n)
+    //     output_rtneural[n] = rtneural_wavenet.forward (input[n]);
 
     compute_error (output_nam, output_rtneural);
 }
@@ -119,33 +122,39 @@ void bench_ob1_model (size_t N, size_t block_size)
                            wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider>>
         rtneural_wavenet;
     load_model (rtneural_wavenet, model_path);
+    rtneural_wavenet.prepare (block_size);
 
-    nam_dsp->prewarm();
-    rtneural_wavenet.prewarm();
+    // nam_dsp->prewarm();
+    // rtneural_wavenet.prewarm();
 
     auto input = generate_test_signal (N);
     std::vector<float> output;
-    output.resize (block_size, 0.0f);
+    output.resize (N, 0.0f);
 
     size_t n_blocks = N / block_size;
-
-    size_t offset = 0;
 
     const auto [duration_nam, duration_rtneural] = time_it (
         [&]
         {
+            size_t offset = 0;
             for (int buf = 0; buf < n_blocks; buf++)
             {
-                nam_dsp->process (input.data() + offset, output.data(), (int) block_size);
+                nam_dsp->process (input.data() + offset, output.data() + offset, (int) block_size);
             }
         },
         [&]
         {
+            size_t offset = 0;
             for (int block = 0; block < n_blocks; block++)
             {
-                for (size_t n = 0; n < block_size; ++n)
-                    output[n] = rtneural_wavenet.forward (input[offset + n]);
-
+                const auto* in_data = input.data() + offset;
+                auto* out_data = output.data() + offset;
+#if 1
+                rtneural_wavenet.forward (in_data, out_data, (int) block_size);
+#else
+                for (int n = 0; n < block_size; ++n)
+                    out_data[n] = rtneural_wavenet.forward (in_data[n]);
+#endif
                 offset += block_size;
             }
         });

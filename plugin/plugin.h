@@ -37,7 +37,7 @@ struct Params : chowdsp::ParamHolder
     chowdsp::ChoiceParameter::Ptr mode {
         PID { "mode", 100 },
         "Mode",
-        juce::StringArray { "NAM", "RTNeural" },
+        juce::StringArray { "NAM", "RTNeural (per-sample)", "RTNeural (block)" },
         0,
     };
 };
