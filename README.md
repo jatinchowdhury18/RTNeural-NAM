@@ -13,7 +13,7 @@ git submodule update --init --recursive
 
 # Configure and build with CMake
 cmake -Bbuild -G<generator>
-cmake --build build --target RTNeural-NAM --parallel
+cmake --build build --target RTNeural_NAM --parallel
 ```
 
 ## TODO:
