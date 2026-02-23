@@ -120,56 +120,36 @@ struct Wavenet_Layer
                   Memory_Arena<>& arena)
 #endif
     {
-        const auto _ = arena.create_frame();
-#if RTNEURAL_USE_EIGEN
-        auto* temp_outs = arena.allocate<Eigen::Matrix<T, channels, 1>> (N, RTNEURAL_DEFAULT_ALIGNMENT);
-#elif RTNEURAL_USE_XSIMD
-        auto* temp_outs = arena.allocate<xsimd::batch<T>[RTNeural::ceil_div (channels, (int) xsimd::batch<T>::size)]> (N, RTNEURAL_DEFAULT_ALIGNMENT);
-#endif
-
+        // Fused single-pass: eliminates temp_outs allocation and reduces
+        // cache pressure by processing all operations per sample together.
+        (void) arena;
         for (int n = 0; n < N; ++n)
         {
             conv.forward (ins[n]);
-#if RTNEURAL_USE_EIGEN
-            temp_outs[n].noalias() = conv.outs;
-#elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (conv.outs); ++i)
-                temp_outs[n][i] = conv.outs[i];
-#endif
-        }
-
-        for (int n = 0; n < N; ++n)
-        {
             input_mixin.forward (condition[n]);
-#if RTNEURAL_USE_EIGEN
-            temp_outs[n].noalias() += input_mixin.outs;
-#elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (input_mixin.outs); ++i)
-                temp_outs[n][i] += input_mixin.outs[i];
-#endif
-        }
 
-        for (int n = 0; n < N; ++n)
-        {
-            activation.forward (temp_outs[n]);
 #if RTNEURAL_USE_EIGEN
-            temp_outs[n].noalias() = activation.outs;
+            outs.noalias() = conv.outs + input_mixin.outs;
+#elif RTNEURAL_USE_XSIMD
+            for (int i = 0; i < std::size (outs); ++i)
+                outs[i] = conv.outs[i] + input_mixin.outs[i];
+#endif
+
+            activation.forward (outs);
+
+#if RTNEURAL_USE_EIGEN
             head_io[n].noalias() += activation.outs;
 #elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (activation.outs); ++i)
-                temp_outs[n][i] = activation.outs[i];
-            for (int i = 0; i < std::size (activation.outs); ++i)
+            for (int i = 0; i < std::size (outs); ++i)
                 head_io[n][i] += activation.outs[i];
 #endif
-        }
 
-        for (int n = 0; n < N; ++n)
-        {
-            _1x1.forward (temp_outs[n]);
+            _1x1.forward (activation.outs);
+
 #if RTNEURAL_USE_EIGEN
             layer_outputs[n].noalias() = ins[n] + _1x1.outs;
 #elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (_1x1.outs); ++i)
+            for (int i = 0; i < std::size (outs); ++i)
                 layer_outputs[n][i] = ins[n][i] + _1x1.outs[i];
 #endif
         }

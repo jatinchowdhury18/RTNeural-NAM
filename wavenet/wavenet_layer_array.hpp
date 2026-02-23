@@ -64,9 +64,9 @@ struct Layer_Array
     static size_t get_arena_bytes_needed (int N)
     {
 #if RTNEURAL_USE_EIGEN
-        return 2 * sizeof (Eigen::Matrix<float, channels, 1>) * N + sizeof (Eigen::Matrix<float, head_size, 1>) * N;
+        return sizeof (Eigen::Matrix<float, channels, 1>) * N + sizeof (Eigen::Matrix<float, head_size, 1>) * N;
 #elif RTNEURAL_USE_XSIMD
-        return 2 * sizeof (Layer_Out) * N + sizeof (Head_Out) * N;
+        return sizeof (Layer_Out) * N + sizeof (Head_Out) * N;
 #endif
     }
 
