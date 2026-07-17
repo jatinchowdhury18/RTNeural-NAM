@@ -141,6 +141,7 @@ void bench_ob1_model (size_t N, size_t block_size)
             for (int buf = 0; buf < n_blocks; buf++)
             {
                 nam_dsp->process (input.data() + offset, output.data() + offset, (int) block_size);
+                offset += block_size;
             }
         },
         [&]
@@ -171,7 +172,11 @@ int main()
     nam::activations::Activation::enable_fast_tanh();
 
     test_ob1_model();
-    bench_ob1_model (1 << 15, 128);
+    for (const auto block_size : { 1, 16, 32, 64, 128, 256 })
+    {
+        std::cout << "\nBlock size: " << block_size << std::endl;
+        bench_ob1_model (1 << 18, block_size);
+    }
 
     return 0;
 }
