@@ -16,7 +16,8 @@ template <typename T,
           typename DilationsSequence,
           bool has_head_bias,
           typename MathsProvider,
-          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>>
+          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>,
+          bool fused_block = false>
 struct Layer_Array
 {
     template <typename>
@@ -27,7 +28,7 @@ struct Layer_Array
     template <int... dilation_vals>
     struct Layers_Helper<Dilations<dilation_vals...>>
     {
-        using type = std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilation_vals, MathsProvider, Activation>...>;
+        using type = std::tuple<Wavenet_Layer<T, condition_size, channels, kernel_size, dilation_vals, MathsProvider, Activation, fused_block>...>;
     };
 
     using Layers = typename Layers_Helper<DilationsSequence>::type;
@@ -64,9 +65,9 @@ struct Layer_Array
     static size_t get_arena_bytes_needed (int N)
     {
 #if RTNEURAL_USE_EIGEN
-        return sizeof (Eigen::Matrix<float, channels, 1>) * N + sizeof (Eigen::Matrix<float, head_size, 1>) * N;
+        return (fused_block ? 1 : 2) * sizeof (Eigen::Matrix<float, channels, 1>) * N + sizeof (Eigen::Matrix<float, head_size, 1>) * N;
 #elif RTNEURAL_USE_XSIMD
-        return sizeof (Layer_Out) * N + sizeof (Head_Out) * N;
+        return (fused_block ? 1 : 2) * sizeof (Layer_Out) * N + sizeof (Head_Out) * N;
 #endif
     }
 

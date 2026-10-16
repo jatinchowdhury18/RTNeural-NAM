@@ -5,6 +5,9 @@
 
 #include "wavenet/wavenet_model.hpp"
 
+// Set to true to test and benchmark the fused block path.
+static constexpr bool fused_block = false;
+
 struct NAMMathsProvider
 {
 #if RTNEURAL_USE_EIGEN
@@ -66,8 +69,8 @@ void test_ob1_model()
     using Dilations = wavenet::Dilations<1, 2, 4, 8, 16, 32, 64, 128, 256, 512>;
     wavenet::Wavenet_Model<float,
                            1,
-                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, Dilations, false, NAMMathsProvider>,
-                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider>>
+                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, Dilations, false, NAMMathsProvider, RTNeural::TanhActivationT<float, 16, NAMMathsProvider>, fused_block>,
+                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider, RTNeural::TanhActivationT<float, 8, NAMMathsProvider>, fused_block>>
         rtneural_wavenet;
     load_model (rtneural_wavenet, model_path);
 
@@ -119,8 +122,8 @@ void bench_ob1_model (size_t N, size_t block_size)
     using Dilations = wavenet::Dilations<1, 2, 4, 8, 16, 32, 64, 128, 256, 512>;
     wavenet::Wavenet_Model<float,
                            1,
-                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, Dilations, false, NAMMathsProvider>,
-                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider>>
+                           wavenet::Layer_Array<float, 1, 1, 8, 16, 3, Dilations, false, NAMMathsProvider, RTNeural::TanhActivationT<float, 16, NAMMathsProvider>, fused_block>,
+                           wavenet::Layer_Array<float, 16, 1, 1, 8, 3, Dilations, true, NAMMathsProvider, RTNeural::TanhActivationT<float, 8, NAMMathsProvider>, fused_block>>
         rtneural_wavenet;
     load_model (rtneural_wavenet, model_path);
     rtneural_wavenet.prepare ((int) block_size);

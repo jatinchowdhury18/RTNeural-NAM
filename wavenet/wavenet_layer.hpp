@@ -10,7 +10,8 @@ template <typename T,
           int kernel_size,
           int dilation,
           typename MathsProvider,
-          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>>
+          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>,
+          bool fused_block = false>
 // TODO: gated?
 struct Wavenet_Layer
 {
@@ -120,36 +121,92 @@ struct Wavenet_Layer
                   Memory_Arena<>& arena)
 #endif
     {
-        // Fused single-pass: eliminates temp_outs allocation and reduces
-        // cache pressure by processing all operations per sample together.
-        (void) arena;
+        // One pass per sample without the temp buffer: faster at block size 1, slower for larger blocks.
+        if constexpr (fused_block)
+        {
+            for (int n = 0; n < N; ++n)
+            {
+                conv.forward (ins[n]);
+                input_mixin.forward (condition[n]);
+
+#if RTNEURAL_USE_EIGEN
+                outs.noalias() = conv.outs + input_mixin.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    outs[i] = conv.outs[i] + input_mixin.outs[i];
+#endif
+
+                activation.forward (outs);
+
+#if RTNEURAL_USE_EIGEN
+                head_io[n].noalias() += activation.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    head_io[n][i] += activation.outs[i];
+#endif
+
+                _1x1.forward (activation.outs);
+
+#if RTNEURAL_USE_EIGEN
+                layer_outputs[n].noalias() = ins[n] + _1x1.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    layer_outputs[n][i] = ins[n][i] + _1x1.outs[i];
+#endif
+            }
+            return;
+        }
+
+        const auto _ = arena.create_frame();
+#if RTNEURAL_USE_EIGEN
+        auto* temp_outs = arena.allocate<Eigen::Matrix<T, channels, 1>> (N, RTNEURAL_DEFAULT_ALIGNMENT);
+#elif RTNEURAL_USE_XSIMD
+        auto* temp_outs = arena.allocate<xsimd::batch<T>[RTNeural::ceil_div (channels, (int) xsimd::batch<T>::size)]> (N, RTNEURAL_DEFAULT_ALIGNMENT);
+#endif
+
         for (int n = 0; n < N; ++n)
         {
             conv.forward (ins[n]);
-            input_mixin.forward (condition[n]);
-
 #if RTNEURAL_USE_EIGEN
-            outs.noalias() = conv.outs + input_mixin.outs;
+            temp_outs[n].noalias() = conv.outs;
 #elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (outs); ++i)
-                outs[i] = conv.outs[i] + input_mixin.outs[i];
+            for (int i = 0; i < std::size (conv.outs); ++i)
+                temp_outs[n][i] = conv.outs[i];
 #endif
+        }
 
-            activation.forward (outs);
-
+        for (int n = 0; n < N; ++n)
+        {
+            input_mixin.forward (condition[n]);
 #if RTNEURAL_USE_EIGEN
+            temp_outs[n].noalias() += input_mixin.outs;
+#elif RTNEURAL_USE_XSIMD
+            for (int i = 0; i < std::size (input_mixin.outs); ++i)
+                temp_outs[n][i] += input_mixin.outs[i];
+#endif
+        }
+
+        for (int n = 0; n < N; ++n)
+        {
+            activation.forward (temp_outs[n]);
+#if RTNEURAL_USE_EIGEN
+            temp_outs[n].noalias() = activation.outs;
             head_io[n].noalias() += activation.outs;
 #elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (outs); ++i)
+            for (int i = 0; i < std::size (activation.outs); ++i)
+                temp_outs[n][i] = activation.outs[i];
+            for (int i = 0; i < std::size (activation.outs); ++i)
                 head_io[n][i] += activation.outs[i];
 #endif
+        }
 
-            _1x1.forward (activation.outs);
-
+        for (int n = 0; n < N; ++n)
+        {
+            _1x1.forward (temp_outs[n]);
 #if RTNEURAL_USE_EIGEN
             layer_outputs[n].noalias() = ins[n] + _1x1.outs;
 #elif RTNEURAL_USE_XSIMD
-            for (int i = 0; i < std::size (outs); ++i)
+            for (int i = 0; i < std::size (_1x1.outs); ++i)
                 layer_outputs[n][i] = ins[n][i] + _1x1.outs[i];
 #endif
         }
