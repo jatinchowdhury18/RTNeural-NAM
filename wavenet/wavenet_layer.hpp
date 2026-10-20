@@ -10,7 +10,8 @@ template <typename T,
           int kernel_size,
           int dilation,
           typename MathsProvider,
-          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>>
+          typename Activation = RTNeural::TanhActivationT<T, channels, MathsProvider>,
+          bool fused_block = false>
 // TODO: gated?
 struct Wavenet_Layer
 {
@@ -120,6 +121,42 @@ struct Wavenet_Layer
                   Memory_Arena<>& arena)
 #endif
     {
+        // One pass per sample without the temp buffer: faster at block size 1, slower for larger blocks.
+        if constexpr (fused_block)
+        {
+            for (int n = 0; n < N; ++n)
+            {
+                conv.forward (ins[n]);
+                input_mixin.forward (condition[n]);
+
+#if RTNEURAL_USE_EIGEN
+                outs.noalias() = conv.outs + input_mixin.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    outs[i] = conv.outs[i] + input_mixin.outs[i];
+#endif
+
+                activation.forward (outs);
+
+#if RTNEURAL_USE_EIGEN
+                head_io[n].noalias() += activation.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    head_io[n][i] += activation.outs[i];
+#endif
+
+                _1x1.forward (activation.outs);
+
+#if RTNEURAL_USE_EIGEN
+                layer_outputs[n].noalias() = ins[n] + _1x1.outs;
+#elif RTNEURAL_USE_XSIMD
+                for (int i = 0; i < std::size (outs); ++i)
+                    layer_outputs[n][i] = ins[n][i] + _1x1.outs[i];
+#endif
+            }
+            return;
+        }
+
         const auto _ = arena.create_frame();
 #if RTNEURAL_USE_EIGEN
         auto* temp_outs = arena.allocate<Eigen::Matrix<T, channels, 1>> (N, RTNEURAL_DEFAULT_ALIGNMENT);
